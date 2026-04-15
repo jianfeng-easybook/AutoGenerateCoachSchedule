@@ -30,6 +30,10 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<ExclusionEvaluator>();
         services.AddSingleton<RecurrenceDueEvaluator>();
         services.AddSingleton<CoachScheduleFactory>();
+        services.AddSingleton<ScheduleValidationService>();
+        services.AddSingleton<PreparedScheduleBuilder>();
+        services.AddSingleton<BatchDuplicateFilter>();
+        services.AddTransient<SchedulePostInsertService>();
         services.AddSingleton<AutoGenerateService>();
         services.AddSingleton<SchedulerRunner>();
         services.AddSingleton<DatabaseTargetResolver>();

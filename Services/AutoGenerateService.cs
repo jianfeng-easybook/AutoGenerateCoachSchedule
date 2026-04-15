@@ -16,6 +16,10 @@ namespace AutoGenerateCoachSchedule.Services
         private readonly RecurrenceDueEvaluator _recurrenceDueEvaluator;
         private readonly DatabaseTargetResolver _databaseTargetResolver;
         private readonly CoachScheduleFactory _factory;
+        private readonly ScheduleValidationService _scheduleValidationService;
+        private readonly PreparedScheduleBuilder _preparedScheduleBuilder;
+        private readonly BatchDuplicateFilter _batchDuplicateFilter;
+        private readonly SchedulePostInsertService _schedulePostInsertService;
         private readonly SchedulerOptions _options;
         private readonly ILogger<AutoGenerateService> _logger;
 
@@ -27,6 +31,10 @@ namespace AutoGenerateCoachSchedule.Services
             RecurrenceDueEvaluator recurrenceDueEvaluator,
             DatabaseTargetResolver databaseTargetResolver,
             CoachScheduleFactory factory,
+            ScheduleValidationService scheduleValidationService,
+            PreparedScheduleBuilder preparedScheduleBuilder,
+            BatchDuplicateFilter batchDuplicateFilter,
+            SchedulePostInsertService schedulePostInsertService,
             IOptions<SchedulerOptions> options,
             ILogger<AutoGenerateService> logger)
         {
@@ -37,6 +45,10 @@ namespace AutoGenerateCoachSchedule.Services
             _recurrenceDueEvaluator = recurrenceDueEvaluator;
             _databaseTargetResolver = databaseTargetResolver;
             _factory = factory;
+            _scheduleValidationService = scheduleValidationService;
+            _preparedScheduleBuilder = preparedScheduleBuilder;
+            _batchDuplicateFilter = batchDuplicateFilter;
+            _schedulePostInsertService = schedulePostInsertService;
             _options = options.Value;
             _logger = logger;
         }
@@ -94,15 +106,6 @@ namespace AutoGenerateCoachSchedule.Services
             DateTime today,
             CancellationToken cancellationToken)
         {
-            if (!schedule.Departure_Date.HasValue)
-            {
-                _logger.LogWarning(
-                    "Database={DatabaseName}, Skipping AutoGenerateSchedules_ID={Id} because Departure_Date is null",
-                    database.Name,
-                    schedule.AutoGenerateSchedules_ID);
-                return;
-            }
-
             if (!schedule.RecurrenceType.HasValue)
             {
                 _logger.LogWarning(
@@ -128,9 +131,20 @@ namespace AutoGenerateCoachSchedule.Services
                 return;
             }
 
-            var targetDates = _generationWindowResolver.GetTargetDates(schedule.RecurrenceType, today);
+            var targetDates = _generationWindowResolver.GetTargetDates(schedule.RecurrenceType, today)
+                .Where(x => !_exclusionEvaluator.IsExcluded(x, schedule.ExcludedDays, schedule.ExcludedDates))
+                .Distinct()
+                .OrderBy(x => x)
+                .ToList();
+
             if (targetDates.Count == 0)
+            {
+                _logger.LogInformation(
+                    "Database={DatabaseName}, AutoGenerateSchedules_ID={Id} has no target dates after exclusions",
+                    database.Name,
+                    schedule.AutoGenerateSchedules_ID);
                 return;
+            }
 
             await using var conn = new SqlConnection(database.ConnectionString);
             await conn.OpenAsync(cancellationToken);
@@ -156,55 +170,71 @@ namespace AutoGenerateCoachSchedule.Services
                     return;
                 }
 
-                var inserted = 0;
-                var skipped = 0;
+                var preparedRows = new List<PreparedScheduleRow>();
+                var validationFailures = 0;
 
                 foreach (var targetDate in targetDates)
                 {
-                    if (_exclusionEvaluator.IsExcluded(targetDate, schedule.ExcludedDays, schedule.ExcludedDates))
-                    {
-                        skipped++;
-                        continue;
-                    }
-
                     foreach (var template in templates)
                     {
-                        var finalDepartureDateTime = new DateTime(
-                            targetDate.Year,
-                            targetDate.Month,
-                            targetDate.Day,
-                            schedule.Departure_Date.Value.Hour,
-                            schedule.Departure_Date.Value.Minute,
-                            schedule.Departure_Date.Value.Second,
-                            schedule.Departure_Date.Value.Millisecond);
-
-                        var exists = await _coachScheduleRepository.ExistsAsync(
-                            template.Coach_ID,
-                            finalDepartureDateTime,
-                            template.FromPlace,
-                            template.FromSubPlace,
-                            template.ToPlace,
-                            template.ToSubPlace,
-                            template.SequenceGUID,
-                            conn,
-                            tx,
-                            cancellationToken);
-
-                        if (exists)
+                        if (!_scheduleValidationService.IsValid(schedule, template, targetDate))
                         {
-                            skipped++;
+                            validationFailures++;
+                            _logger.LogWarning(
+                                "Database={DatabaseName}, AutoGenerateSchedules_ID={Id}, Template_ID={TemplateId}, TargetDate={TargetDate:yyyy-MM-dd} failed validation",
+                                database.Name,
+                                schedule.AutoGenerateSchedules_ID,
+                                template.Template_ID,
+                                targetDate);
                             continue;
                         }
 
-                        var coachSchedule = _factory.Create(
-                            template,
-                            targetDate,
-                            schedule.Departure_Date.Value,
-                            _options.RunUser);
-
-                        await _coachScheduleRepository.InsertAsync(coachSchedule, conn, tx, cancellationToken);
-                        inserted++;
+                        preparedRows.Add(_preparedScheduleBuilder.Build(schedule, template, targetDate));
                     }
+                }
+
+                if (preparedRows.Count == 0)
+                {
+                    _logger.LogWarning(
+                        "Database={DatabaseName}, AutoGenerateSchedules_ID={Id} has no prepared rows",
+                        database.Name,
+                        schedule.AutoGenerateSchedules_ID);
+
+                    await tx.CommitAsync(cancellationToken);
+                    return;
+                }
+
+                var dedupedRows = _batchDuplicateFilter.Filter(preparedRows);
+
+                var inserted = 0;
+                var skippedInBatch = preparedRows.Count - dedupedRows.Count;
+                var skippedInDb = 0;
+
+                foreach (var preparedRow in dedupedRows)
+                {
+                    var exists = await _coachScheduleRepository.ExistsAsync(
+                        preparedRow.SourceTemplate.Coach_ID,
+                        preparedRow.DepartureDateTime,
+                        preparedRow.DuplicateRouteFromPlace,
+                        preparedRow.DuplicateRouteFromSubPlace,
+                        preparedRow.DuplicateRouteToPlace,
+                        preparedRow.DuplicateRouteToSubPlace,
+                        preparedRow.DuplicateSequenceGuid,
+                        conn,
+                        tx,
+                        cancellationToken);
+
+                    if (exists)
+                    {
+                        skippedInDb++;
+                        continue;
+                    }
+
+                    var coachSchedule = _factory.Create(preparedRow, _options.RunUser);
+
+                    await _coachScheduleRepository.InsertAsync(coachSchedule, conn, tx, cancellationToken);
+                    await _schedulePostInsertService.HandleAsync(coachSchedule, preparedRow, conn, tx, cancellationToken);
+                    inserted++;
                 }
 
                 await _autoGenerateRepository.UpdateLastRunDateAsync(
@@ -218,11 +248,16 @@ namespace AutoGenerateCoachSchedule.Services
                 await tx.CommitAsync(cancellationToken);
 
                 _logger.LogInformation(
-                    "Completed Database={DatabaseName}, AutoGenerateSchedules_ID={Id}, Inserted={Inserted}, Skipped={Skipped}",
+                    "Completed Database={DatabaseName}, AutoGenerateSchedules_ID={Id}, Templates={Templates}, TargetDates={TargetDates}, Prepared={Prepared}, BatchDuplicateSkipped={BatchDuplicateSkipped}, DbDuplicateSkipped={DbDuplicateSkipped}, ValidationFailures={ValidationFailures}, Inserted={Inserted}",
                     database.Name,
                     schedule.AutoGenerateSchedules_ID,
-                    inserted,
-                    skipped);
+                    templates.Count,
+                    targetDates.Count,
+                    preparedRows.Count,
+                    skippedInBatch,
+                    skippedInDb,
+                    validationFailures,
+                    inserted);
             }
             catch
             {

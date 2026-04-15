@@ -5,21 +5,13 @@ namespace AutoGenerateCoachSchedule.Services
     public class CoachScheduleFactory
     {
         public CoachSchedule Create(
-            AutoGenerateCoachScheduleTemplate template,
-            DateTime targetDate,
-            DateTime seedDepartureDateTime,
+            PreparedScheduleRow preparedRow,
             string runUser)
         {
             var now = DateTime.Now;
 
-            var finalDepartureDateTime = new DateTime(
-                targetDate.Year,
-                targetDate.Month,
-                targetDate.Day,
-                seedDepartureDateTime.Hour,
-                seedDepartureDateTime.Minute,
-                seedDepartureDateTime.Second,
-                seedDepartureDateTime.Millisecond);
+            var template = preparedRow.SourceTemplate;
+            var finalDepartureDateTime = preparedRow.DepartureDateTime;
 
             return new CoachSchedule
             {
@@ -71,7 +63,7 @@ namespace AutoGenerateCoachSchedule.Services
                 OnlineTicketCostCSD = template.OnlineTicketCostCSD,
                 SubCompany_ID = template.SubCompany_ID,
                 Platform_Number = template.Platform_Number,
-                SeatAvailability = ParseNullableInt(template.SeatAvailability),
+                SeatAvailability = preparedRow.SeatAvailability,
                 OnlineRouteTrip_Adult = template.OnlineRouteTrip_Adult,
                 OnlineRouteTrip_CSD = template.OnlineRouteTrip_CSD,
                 CounterRouteTrip_Adult = template.CounterRouteTrip_Adult,
@@ -90,15 +82,5 @@ namespace AutoGenerateCoachSchedule.Services
             };
         }
 
-        private static int? ParseNullableInt(string? value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return null;
-
-            if (int.TryParse(value, out var parsed))
-                return parsed;
-
-            return null;
-        }
     }
 }
