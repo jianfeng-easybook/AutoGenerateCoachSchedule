@@ -23,21 +23,21 @@ namespace AutoGenerateCoachSchedule.Data
             FROM dbo.CoachSchedule
             WHERE Coach_ID = @Coach_ID
               AND CAST(Departure_Date AS date) = @Departure_Date
-              AND ISNULL(FromPlace, -1) = ISNULL(@FromPlace, -1)
-              AND ISNULL(FromSubPlace, -1) = ISNULL(@FromSubPlace, -1)
-              AND ISNULL(ToPlace, -1) = ISNULL(@ToPlace, -1)
-              AND ISNULL(ToSubPlace, -1) = ISNULL(@ToSubPlace, -1)
-              AND ISNULL(CAST(SequenceGUID AS varchar(50)), '') = ISNULL(CAST(@SequenceGUID AS varchar(50)), '');";
+              AND ISNULL(FromPlace, '') = ISNULL(@FromPlace, '')
+              AND ISNULL(FromSubPlace, '') = ISNULL(@FromSubPlace, '')
+              AND ISNULL(ToPlace, '') = ISNULL(@ToPlace, '')
+              AND ISNULL(ToSubPlace, '') = ISNULL(@ToSubPlace, '')
+              AND ISNULL(SequenceGUID, '') = ISNULL(@SequenceGUID, '');";
 
             await using var cmd = new SqlCommand(sql, conn, tx);
 
             cmd.Parameters.Add("@Coach_ID", SqlDbType.Int).Value = coachId;
             cmd.Parameters.Add("@Departure_Date", SqlDbType.Date).Value = departureDate.Date;
-            cmd.Parameters.Add("@FromPlace", SqlDbType.Int).Value = (object?)fromPlace ?? DBNull.Value;
-            cmd.Parameters.Add("@FromSubPlace", SqlDbType.Int).Value = (object?)fromSubPlace ?? DBNull.Value;
-            cmd.Parameters.Add("@ToPlace", SqlDbType.Int).Value = (object?)toPlace ?? DBNull.Value;
-            cmd.Parameters.Add("@ToSubPlace", SqlDbType.Int).Value = (object?)toSubPlace ?? DBNull.Value;
-            cmd.Parameters.Add("@SequenceGUID", SqlDbType.UniqueIdentifier).Value = (object?)sequenceGuid ?? DBNull.Value;
+            cmd.Parameters.Add("@FromPlace", SqlDbType.VarChar, 100).Value = (object?)fromPlace ?? DBNull.Value;
+            cmd.Parameters.Add("@FromSubPlace", SqlDbType.VarChar, 100).Value = (object?)fromSubPlace ?? DBNull.Value;
+            cmd.Parameters.Add("@ToPlace", SqlDbType.VarChar, 100).Value = (object?)toPlace ?? DBNull.Value;
+            cmd.Parameters.Add("@ToSubPlace", SqlDbType.VarChar, 100).Value = (object?)toSubPlace ?? DBNull.Value;
+            cmd.Parameters.Add("@SequenceGUID", SqlDbType.VarChar, 50).Value = (object?)sequenceGuid ?? DBNull.Value;
 
             var result = await cmd.ExecuteScalarAsync(cancellationToken);
             return Convert.ToInt32(result) > 0;
