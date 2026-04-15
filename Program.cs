@@ -19,6 +19,9 @@ var host = Host.CreateDefaultBuilder(args)
     .ConfigureServices((context, services) =>
     {
         services.Configure<SchedulerOptions>(context.Configuration.GetSection("Scheduler"));
+        services.Configure<SqlServerOptions>(context.Configuration.GetSection("SqlServer"));
+        services.Configure<Dictionary<string, Dictionary<string, DatabaseEnvironmentOptions>>>(
+            context.Configuration.GetSection("DatabaseCatalog"));
 
         services.AddSingleton<AutoGenerateRepository>();
         services.AddSingleton<CoachScheduleRepository>();
@@ -29,6 +32,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<CoachScheduleFactory>();
         services.AddSingleton<AutoGenerateService>();
         services.AddSingleton<SchedulerRunner>();
+        services.AddSingleton<DatabaseTargetResolver>();
     })
     .Build();
 

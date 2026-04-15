@@ -14,6 +14,7 @@ namespace AutoGenerateCoachSchedule.Services
         private readonly GenerationWindowResolver _generationWindowResolver;
         private readonly ExclusionEvaluator _exclusionEvaluator;
         private readonly RecurrenceDueEvaluator _recurrenceDueEvaluator;
+        private readonly DatabaseTargetResolver _databaseTargetResolver;
         private readonly CoachScheduleFactory _factory;
         private readonly SchedulerOptions _options;
         private readonly ILogger<AutoGenerateService> _logger;
@@ -24,6 +25,7 @@ namespace AutoGenerateCoachSchedule.Services
             GenerationWindowResolver generationWindowResolver,
             ExclusionEvaluator exclusionEvaluator,
             RecurrenceDueEvaluator recurrenceDueEvaluator,
+            DatabaseTargetResolver databaseTargetResolver,
             CoachScheduleFactory factory,
             IOptions<SchedulerOptions> options,
             ILogger<AutoGenerateService> logger)
@@ -33,6 +35,7 @@ namespace AutoGenerateCoachSchedule.Services
             _generationWindowResolver = generationWindowResolver;
             _exclusionEvaluator = exclusionEvaluator;
             _recurrenceDueEvaluator = recurrenceDueEvaluator;
+            _databaseTargetResolver = databaseTargetResolver;
             _factory = factory;
             _options = options.Value;
             _logger = logger;
@@ -41,10 +44,7 @@ namespace AutoGenerateCoachSchedule.Services
         public async Task ProcessAsync(CancellationToken cancellationToken)
         {
             var today = DateTime.Today;
-
-            var databases = _options.Databases
-                .Where(x => x.Enabled)
-                .ToList();
+            var databases = _databaseTargetResolver.Resolve();
 
             _logger.LogInformation("Enabled databases found: {Count}", databases.Count);
 
