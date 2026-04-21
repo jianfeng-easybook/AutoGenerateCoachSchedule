@@ -39,6 +39,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<SchedulerRunner>();
         services.AddSingleton<DatabaseTargetResolver>();
         services.AddSingleton<PreparedScheduleGuidAssigner>();
+        services.AddSingleton<PreparedScheduleIdentityAssigner>();
     })
     .Build();
 

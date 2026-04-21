@@ -20,7 +20,7 @@ namespace AutoGenerateCoachSchedule.Services
         private readonly PreparedScheduleBuilder _preparedScheduleBuilder;
         private readonly BatchDuplicateFilter _batchDuplicateFilter;
         private readonly SchedulePostInsertService _schedulePostInsertService;
-        private readonly PreparedScheduleGuidAssigner _preparedScheduleGuidAssigner;
+        private readonly PreparedScheduleIdentityAssigner _preparedScheduleIdentityAssigner;
         private readonly SchedulerOptions _options;
         private readonly ILogger<AutoGenerateService> _logger;
 
@@ -36,7 +36,7 @@ namespace AutoGenerateCoachSchedule.Services
             PreparedScheduleBuilder preparedScheduleBuilder,
             BatchDuplicateFilter batchDuplicateFilter,
             SchedulePostInsertService schedulePostInsertService,
-            PreparedScheduleGuidAssigner preparedScheduleGuidAssigner,
+            PreparedScheduleIdentityAssigner preparedScheduleIdentityAssigner,
             IOptions<SchedulerOptions> options,
             ILogger<AutoGenerateService> logger)
         {
@@ -51,7 +51,7 @@ namespace AutoGenerateCoachSchedule.Services
             _preparedScheduleBuilder = preparedScheduleBuilder;
             _batchDuplicateFilter = batchDuplicateFilter;
             _schedulePostInsertService = schedulePostInsertService;
-            _preparedScheduleGuidAssigner = preparedScheduleGuidAssigner;
+            _preparedScheduleIdentityAssigner = preparedScheduleIdentityAssigner;
             _options = options.Value;
             _logger = logger;
         }
@@ -208,7 +208,7 @@ namespace AutoGenerateCoachSchedule.Services
                 }
 
                 var dedupedRows = _batchDuplicateFilter.Filter(preparedRows).ToList();
-                _preparedScheduleGuidAssigner.Assign(dedupedRows);
+                _preparedScheduleIdentityAssigner.Assign(dedupedRows);
 
                 var inserted = 0;
                 var skippedInBatch = preparedRows.Count - dedupedRows.Count;
