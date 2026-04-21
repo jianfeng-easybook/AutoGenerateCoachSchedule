@@ -13,6 +13,12 @@ namespace AutoGenerateCoachSchedule.Services
             var template = preparedRow.SourceTemplate;
             var finalDepartureDateTime = preparedRow.DepartureDateTime;
 
+            if (string.IsNullOrWhiteSpace(preparedRow.GeneratedGuid))
+                throw new InvalidOperationException("Prepared row GeneratedGuid was not assigned.");
+
+            if (string.IsNullOrWhiteSpace(preparedRow.GeneratedGroupGuid))
+                throw new InvalidOperationException("Prepared row GeneratedGroupGuid was not assigned.");
+
             return new CoachSchedule
             {
                 Coach_ID = template.Coach_ID,
@@ -26,7 +32,7 @@ namespace AutoGenerateCoachSchedule.Services
                 Create_User = runUser,
                 Update_Date = now,
                 Update_User = runUser,
-                GUID = Guid.NewGuid().ToString(),
+                GUID = preparedRow.GeneratedGuid,
                 Publish_Date = finalDepartureDateTime,
                 Currency = template.Currency,
                 FromSubPlaceAddID = template.FromSubPlaceAddID,
@@ -47,7 +53,7 @@ namespace AutoGenerateCoachSchedule.Services
                 HideFromAgent = template.HideFromAgent,
                 TicketCostCSD = template.TicketCostCSD,
                 AgentCommission = template.AgentCommission,
-                GroupGUID = template.GroupGUID,
+                GroupGUID = preparedRow.GeneratedGroupGuid,
                 Freeze = template.Freeze,
                 websiteRemark = template.websiteRemark,
                 Template_ID = template.Template_ID,

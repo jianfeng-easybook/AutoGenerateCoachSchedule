@@ -14,76 +14,60 @@ namespace AutoGenerateCoachSchedule.Data
             CancellationToken cancellationToken)
         {
             const string sql = @"
-            IF EXISTS (
-                SELECT 1
-                FROM dbo.Coach_Seat
-                WHERE Schedule_GUID = @Schedule_GUID
-            )
-            BEGIN
-                SELECT 0;
-                RETURN;
-            END
-
             INSERT INTO dbo.Coach_Seat
             (
-                Coach_ID,
-                Schedule_GUID,
                 Seat_Position_X,
                 Seat_Position_Y,
                 Seat_Number,
                 Seat_Status,
-                Deck,
-                IsBed,
-                Rowspan,
-                Colspan,
-                DeckName,
-                DeckID,
-                CabinID,
-                SeatFeatures,
-                Seat_Price,
-                Release_Date,
                 Create_Date,
                 Create_User,
                 Update_Date,
-                Update_User
+                Update_User,
+                Schedule_GUID,
+                Deck
             )
             SELECT
-                c.Coach_ID,
-                @Schedule_GUID,
                 cst.Seat_Position_X,
                 cst.Seat_Position_Y,
                 cst.Seat_Number,
-                cst.Status,
-                cst.Deck,
-                cst.IsBed,
-                cst.Rowspan,
-                cst.Colspan,
-                cst.DeckName,
-                cst.DeckID,
-                cst.CabinID,
-                cst.SeatFeatures,
-                NULL,
-                NULL,
+                CASE
+                    WHEN cst.Status = 1 THEN 0
+                    WHEN cst.Status = 0 THEN 3
+                    WHEN cst.Status = 2 THEN 6
+                    ELSE cst.Status
+                END,
                 GETDATE(),
                 @RunUser,
                 GETDATE(),
-                @RunUser
-            FROM dbo.Coach_Seat_Template cst
-            INNER JOIN dbo.CoachType ct
-                ON cst.CoachTypeID = ct.CoachTypeID
-            INNER JOIN dbo.Coaches c
-                ON c.CoachTypeID = ct.CoachTypeID
-            WHERE c.Coach_ID = @Coach_ID;
+                @RunUser,
+                @Schedule_GUID,
+                cst.Deck
+            FROM dbo.Coach_Seat_Template cst WITH (NOLOCK)
+            INNER JOIN dbo.CoachType ct WITH (NOLOCK)
+                ON cst.CoachType_ID = ct.CoachType_ID
+            INNER JOIN dbo.Coaches c WITH (NOLOCK)
+                ON c.CoachType_ID = ct.CoachType_ID
+            WHERE c.Coach_ID = @Coach_ID
+            AND NOT EXISTS
+            (
+                SELECT 1
+                FROM dbo.Coach_Seat cs WITH (NOLOCK)
+                WHERE cs.Seat_Position_X = cst.Seat_Position_X
+                  AND cs.Seat_Position_Y = cst.Seat_Position_Y
+                  AND cs.Schedule_GUID = @Schedule_GUID
+                  AND cs.Deck = cst.Deck
+            );
 
             SELECT @@ROWCOUNT;";
 
             await using var cmd = new SqlCommand(sql, conn, tx);
             cmd.Parameters.Add("@Coach_ID", SqlDbType.Int).Value = coachId;
             cmd.Parameters.Add("@Schedule_GUID", SqlDbType.VarChar, 50).Value = scheduleGuid;
-            cmd.Parameters.Add("@RunUser", SqlDbType.VarChar, 100).Value = runUser;
+            cmd.Parameters.Add("@RunUser", SqlDbType.VarChar, 50).Value = runUser;
 
             var result = await cmd.ExecuteScalarAsync(cancellationToken);
-            return Convert.ToInt32(result);
+            return result == null ? 0 : Convert.ToInt32(result);
         }
     }
 }

@@ -17,5 +17,8 @@ namespace AutoGenerateCoachSchedule.Models
         public string? DuplicateSequenceGuid { get; set; }
 
         public int? SeatAvailability { get; set; }
+
+        public string? GeneratedGuid { get; set; }
+        public string? GeneratedGroupGuid { get; set; }
     }
 }

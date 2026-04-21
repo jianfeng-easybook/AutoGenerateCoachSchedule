@@ -18,10 +18,18 @@ namespace AutoGenerateCoachSchedule.Services
 
             _validation.TryParseSeatAvailability(template.SeatAvailability, out var seat);
 
-            var seed = schedule.Departure_Date ?? targetDate;
+            var timeSeed = template.Departure_Date
+                          ?? schedule.Departure_Date
+                          ?? targetDate;
 
-            var dt = new DateTime(targetDate.Year, targetDate.Month, targetDate.Day,
-                seed.Hour, seed.Minute, seed.Second);
+            var dt = new DateTime(
+                targetDate.Year,
+                targetDate.Month,
+                targetDate.Day,
+                timeSeed.Hour,
+                timeSeed.Minute,
+                timeSeed.Second,
+                timeSeed.Millisecond);
 
             return new PreparedScheduleRow
             {
