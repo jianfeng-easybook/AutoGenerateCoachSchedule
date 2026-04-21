@@ -25,6 +25,7 @@ var host = Host.CreateDefaultBuilder(args)
 
         services.AddSingleton<AutoGenerateRepository>();
         services.AddSingleton<CoachScheduleRepository>();
+        services.AddTransient<CoachSeatRepository>();
 
         services.AddSingleton<GenerationWindowResolver>();
         services.AddSingleton<ExclusionEvaluator>();
