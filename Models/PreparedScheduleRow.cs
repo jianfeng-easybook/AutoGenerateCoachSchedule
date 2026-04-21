@@ -20,5 +20,6 @@ namespace AutoGenerateCoachSchedule.Models
 
         public string? GeneratedGuid { get; set; }
         public string? GeneratedGroupGuid { get; set; }
+        public string? GeneratedSequenceGuid { get; set; }
     }
 }

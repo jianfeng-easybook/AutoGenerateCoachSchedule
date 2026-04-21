@@ -62,7 +62,7 @@ namespace AutoGenerateCoachSchedule.Services
                 AutoOff_Type = template.AutoOff_Type,
                 AutoOff_Enable = template.AutoOff_Enable,
                 Active_Status = template.Active_Status,
-                SequenceGUID = template.SequenceGUID,
+                SequenceGUID = preparedRow.GeneratedSequenceGuid,
                 CoachType_Alias = template.CoachType_Alias,
                 OnlineTicketCurrency = template.OnlineTicketCurrency,
                 OnlineTicketCost = template.OnlineTicketCost,
