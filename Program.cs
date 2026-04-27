@@ -26,6 +26,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<AutoGenerateRepository>();
         services.AddSingleton<CoachScheduleRepository>();
         services.AddTransient<CoachSeatRepository>();
+        services.AddTransient<CoachScheduleSequenceRepository>();
 
         services.AddSingleton<GenerationWindowResolver>();
         services.AddSingleton<ExclusionEvaluator>();
@@ -34,6 +35,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<ScheduleValidationService>();
         services.AddSingleton<PreparedScheduleBuilder>();
         services.AddSingleton<BatchDuplicateFilter>();
+        services.AddSingleton<CoachScheduleSequenceBuilder>();
         services.AddTransient<SchedulePostInsertService>();
         services.AddSingleton<AutoGenerateService>();
         services.AddSingleton<SchedulerRunner>();

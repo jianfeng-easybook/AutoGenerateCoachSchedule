@@ -213,6 +213,7 @@ namespace AutoGenerateCoachSchedule.Services
                 var inserted = 0;
                 var skippedInBatch = preparedRows.Count - dedupedRows.Count;
                 var skippedInDb = 0;
+                var insertedRows = new List<CoachSchedule>();
 
                 foreach (var preparedRow in dedupedRows)
                 {
@@ -238,8 +239,11 @@ namespace AutoGenerateCoachSchedule.Services
 
                     await _coachScheduleRepository.InsertAsync(coachSchedule, conn, tx, cancellationToken);
                     await _schedulePostInsertService.HandleAsync(coachSchedule, preparedRow, conn, tx, cancellationToken);
+                    insertedRows.Add(coachSchedule);
                     inserted++;
                 }
+
+                await _schedulePostInsertService.HandleBatchAsync(insertedRows, conn, tx, cancellationToken);
 
                 await _autoGenerateRepository.UpdateLastRunDateAsync(
                         schedule.AutoGenerateSchedules_ID,
